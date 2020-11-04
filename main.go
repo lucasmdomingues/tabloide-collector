@@ -57,7 +57,8 @@ func main() {
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+		log.Fatal("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+		return
 	})
 
 	err := c.Visit("http://www.federzonisupermercados.com.br/site/")
