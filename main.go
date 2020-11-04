@@ -5,46 +5,62 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path"
+	"time"
 
 	"github.com/gocolly/colly"
-	"github.com/google/uuid"
 )
 
-func main() {
-	if _, err := os.Stat("tabloides"); err != nil {
-		os.Mkdir("tabloides", 0774)
+func init() {
+	rand.Seed(1)
+
+	if _, err := os.Stat("storage"); err != nil {
+		os.Mkdir("storage", 0774)
 	} else {
-		dir, err := ioutil.ReadDir("tabloides")
+		dir, err := ioutil.ReadDir("storage")
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		for _, d := range dir {
-			os.RemoveAll(path.Join([]string{"tabloides", d.Name()}...))
+		for _, file := range dir {
+			os.RemoveAll(path.Join([]string{"storage", file.Name()}...))
 		}
 	}
+}
 
+func main() {
 	c := colly.NewCollector()
 
+	c.OnHTML("a[title='Jornal de Ofertas']", func(e *colly.HTMLElement) {
+		c.OnHTML("img", func(e *colly.HTMLElement) {
+			random := rand.Intn(5)
+
+			defer time.Sleep(time.Duration(random) * time.Second)
+			defer log.Printf("Sleeping a %d seconds to not break their server ;)\n", random)
+
+			err := downloadImage(e.Attr("src"))
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+		})
+
+		c.Visit(e.Attr("href"))
+	})
+
 	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
+		log.Println("Visiting", r.URL.String())
 	})
 
-	c.OnHTML("img", func(e *colly.HTMLElement) {
-		link := e.Attr("src")
-
-		err := downloadImage(link)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
+	c.OnError(func(r *colly.Response, err error) {
+		log.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
 	})
 
-	err := c.Visit("http://www.federzonisupermercados.com.br/tabloide/tabloide2.html")
+	err := c.Visit("http://www.federzonisupermercados.com.br/site/")
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -57,20 +73,20 @@ func downloadImage(link string) error {
 		return err
 	}
 
-	fileName := fmt.Sprintf("tabloides/%s.png", uuid.New().String())
+	fileName := fmt.Sprintf("storage/%d.png", rand.Int())
 
-	defer resp.Body.Close()
 	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}
 
+	defer resp.Body.Close()
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(fmt.Sprintf("Image %s downloaded", fileName))
+	log.Println(fmt.Sprintf("Image '%s' has storagered with success", fileName))
 
 	return nil
 }
