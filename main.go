@@ -2,21 +2,18 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"image/jpeg"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"path"
-	"time"
 
 	"github.com/gocolly/colly"
 )
 
 func init() {
-	rand.Seed(1)
-
 	if _, err := os.Stat("storage"); err != nil {
 		os.Mkdir("storage", 0774)
 	} else {
@@ -35,13 +32,8 @@ func init() {
 func main() {
 	c := colly.NewCollector()
 
-	c.OnHTML("a[title='Jornal de Ofertas']", func(e *colly.HTMLElement) {
+	c.OnHTML("a[title='Jornal de Ofertas!']", func(e *colly.HTMLElement) {
 		c.OnHTML("img", func(e *colly.HTMLElement) {
-			random := rand.Intn(5)
-
-			defer time.Sleep(time.Duration(random) * time.Second)
-			defer log.Printf("Sleeping a %d seconds to not break their server ;)\n", random)
-
 			err := downloadImage(e.Attr("src"))
 			if err != nil {
 				log.Fatal(err)
@@ -74,7 +66,7 @@ func downloadImage(link string) error {
 		return err
 	}
 
-	fileName := fmt.Sprintf("storage/%d.png", rand.Int())
+	fileName := fmt.Sprintf("storage/%d.jpg", rand.Int())
 
 	file, err := os.Create(fileName)
 	if err != nil {
@@ -82,8 +74,12 @@ func downloadImage(link string) error {
 	}
 
 	defer resp.Body.Close()
-	_, err = io.Copy(file, resp.Body)
+	img, err := jpeg.Decode(resp.Body)
 	if err != nil {
+		return err
+	}
+
+	if err := jpeg.Encode(file, img, &jpeg.Options{Quality: 100}); err != nil {
 		return err
 	}
 
