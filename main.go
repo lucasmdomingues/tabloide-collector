@@ -20,7 +20,6 @@ func init() {
 		dir, err := ioutil.ReadDir("storage")
 		if err != nil {
 			log.Fatal(err)
-			return
 		}
 
 		for _, file := range dir {
@@ -32,16 +31,18 @@ func init() {
 func main() {
 	c := colly.NewCollector()
 
-	c.OnHTML("a[title='Jornal de Ofertas!']", func(e *colly.HTMLElement) {
+	c.OnHTML("a[title*='Jornal de Ofertas']", func(e *colly.HTMLElement) {
 		c.OnHTML("img", func(e *colly.HTMLElement) {
 			err := downloadImage(e.Attr("src"))
 			if err != nil {
 				log.Fatal(err)
-				return
 			}
 		})
 
-		c.Visit(e.Attr("href"))
+		err := c.Visit(e.Attr("href"))
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 
 	c.OnRequest(func(r *colly.Request) {
@@ -49,24 +50,22 @@ func main() {
 	})
 
 	c.OnError(func(r *colly.Response, err error) {
-		log.Fatal("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-		return
+		log.Fatal(fmt.Sprintf("Request URL: %s failed with status code: %d Error: %s", r.Request.URL, r.StatusCode, err.Error()))
 	})
 
-	err := c.Visit("http://www.federzonisupermercados.com.br/site/")
+	err := c.Visit("http://federzonisupermercados.com.br/web/")
 	if err != nil {
 		log.Fatal(err)
-		return
 	}
 }
 
 func downloadImage(link string) error {
+	fileName := fmt.Sprintf("storage/%d.jpg", rand.Int())
+
 	resp, err := http.Get(link)
 	if err != nil {
 		return err
 	}
-
-	fileName := fmt.Sprintf("storage/%d.jpg", rand.Int())
 
 	file, err := os.Create(fileName)
 	if err != nil {
